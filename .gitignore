@@ -1,3 +1,8 @@
+<<<<<<< HEAD
 .zig-cache/
 zig-out/
 *.o
+=======
+zig-out/
+.zig-cache/
+>>>>>>> 9268523 (basic server/client architecture)
