@@ -35,8 +35,7 @@ pub fn join() !Self {
     const peer_socket = try Socket.initNet(peer_ip);
     try peer_socket.connect();
 
-    var addr_iter = std.mem.splitAny(u8, try std.fmt.allocPrint(std.heap.page_allocator, "{}", .{address}), ":");
-    _ = try server_socket.sendFmt("JOIN {} {s} {s}", .{ uid, addr_iter.first(), addr_iter.next().? });
+    _ = try server_socket.sendFmt("JOIN {}", .{uid});
 
     return Self{
         .address = address,
@@ -59,7 +58,7 @@ fn handleCommand(self: *Self, msg: []const u8) !void {
 }
 
 fn serverReaderReturnsError(self: *Self) !void {
-    var buffer: [16]u8 = undefined;
+    var buffer: [1024]u8 = undefined;
 
     while (true) {
         const n = try self.server.recv(&buffer);
@@ -72,7 +71,8 @@ fn serverReaderReturnsError(self: *Self) !void {
 }
 
 fn serverReader(self: *Self) void {
-    serverReaderReturnsError(self) catch {
+    serverReaderReturnsError(self) catch |err| {
+        std.debug.print("SERVER READER ERROR: {}\n", .{err});
         self.running = false;
     };
 }
@@ -82,7 +82,9 @@ pub fn startServerReader(self: *Self) !void {
 }
 
 pub fn leave(self: Self) !void {
-    self.server.sendFmt("LEAVE {}", .{self.id});
+    _ = try self.server.sendFmt("LEAVE {}", .{self.id});
     self.server.close();
     self.peer.close();
+
+    self.server_reader_thread.join();
 }

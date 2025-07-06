@@ -56,19 +56,6 @@ pub fn recvFrom(self: Self, buffer: []u8) !RecvFromReturn {
     };
 }
 
-pub fn writeToAddress(address: net.Address, data: []u8) !usize {
-    var sock = try Self.initNet(address);
-    try sock.connect();
-    const n = try sock.send(data);
-    sock.close();
-    return n;
-}
-
-pub fn writeFmtToAddress(address: net.Address, comptime fmt: []const u8, args: anytype) !usize {
-    const str = try std.fmt.allocPrint(std.heap.page_allocator, fmt, args);
-    return try writeToAddress(address, str);
-}
-
 pub fn send(self: Self, data: []u8) !usize {
     return try posix.send(self.socket, data[0..], 0);
 }
@@ -76,6 +63,15 @@ pub fn send(self: Self, data: []u8) !usize {
 pub fn sendFmt(self: Self, comptime fmt: []const u8, args: anytype) !usize {
     const str = try std.fmt.allocPrint(std.heap.page_allocator, fmt, args);
     return try self.send(str);
+}
+
+pub fn sendTo(self: Self, address: net.Address, data: []const u8) !usize {
+    return try posix.sendto(self.socket, data, 0, &address.any, address.getOsSockLen());
+}
+
+pub fn sendToFmt(self: Self, address: net.Address, comptime fmt: []const u8, args: anytype) !usize {
+    const str = try std.fmt.allocPrint(std.heap.page_allocator, fmt, args);
+    return try self.sendTo(address, str);
 }
 
 pub fn close(self: Self) void {

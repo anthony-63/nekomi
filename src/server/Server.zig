@@ -22,24 +22,20 @@ pub fn init(address: []const u8, port: u16) !Self {
     };
 }
 
-fn handleCommand(self: *Self, msg: []const u8) !void {
+fn handleCommand(self: *Self, from_addr: net.Address, msg: []const u8) !void {
     var parts = std.mem.splitAny(u8, msg, " ");
     const cmd = parts.first();
 
     if (std.mem.eql(u8, cmd, "JOIN")) {
         const client_id = parts.next().?;
-        const ip = parts.next().?;
-        const port = try std.fmt.parseInt(u16, parts.next().?, 10);
 
         self.mu.lock();
-
-        const remote_addr = try net.Address.resolveIp(ip, port);
 
         const duped_id = try std.heap.page_allocator.dupe(u8, client_id);
 
         try self.clients.put(duped_id, Client{
             .id = duped_id,
-            .addr = remote_addr,
+            .addr = from_addr,
             .last_seen_secs = 0.0,
         });
 
@@ -51,7 +47,7 @@ fn handleCommand(self: *Self, msg: []const u8) !void {
                     var addr_iter = std.mem.splitAny(u8, try std.fmt.allocPrint(std.heap.page_allocator, "{}", .{client.addr}), ":");
 
                     std.debug.print("SEND({}): NEW {s} {s} {s}\n", .{
-                        remote_addr,
+                        from_addr,
                         client.id,
                         addr_iter.first(),
                         addr_iter.next().?,
@@ -59,7 +55,7 @@ fn handleCommand(self: *Self, msg: []const u8) !void {
 
                     addr_iter.reset();
 
-                    _ = try Socket.writeFmtToAddress(remote_addr, "NEW {s} {s} {s}", .{
+                    _ = try self.sock.sendToFmt(from_addr, "NEW {s} {s} {s}", .{
                         client.id,
                         addr_iter.first(),
                         addr_iter.next().?,
@@ -69,7 +65,7 @@ fn handleCommand(self: *Self, msg: []const u8) !void {
                 std.debug.print("\n", .{});
 
                 {
-                    var addr_iter = std.mem.splitAny(u8, try std.fmt.allocPrint(std.heap.page_allocator, "{}", .{remote_addr}), ":");
+                    var addr_iter = std.mem.splitAny(u8, try std.fmt.allocPrint(std.heap.page_allocator, "{}", .{from_addr}), ":");
 
                     std.debug.print("SEND({}): NEW {s} {s} {s}\n", .{
                         client.addr,
@@ -80,7 +76,7 @@ fn handleCommand(self: *Self, msg: []const u8) !void {
 
                     addr_iter.reset();
 
-                    _ = try Socket.writeFmtToAddress(client.addr, "NEW {s} {s} {s}", .{
+                    _ = try self.sock.sendToFmt(client.addr, "NEW {s} {s} {s}", .{
                         client_id,
                         addr_iter.first(),
                         addr_iter.next().?,
@@ -105,6 +101,6 @@ pub fn run(self: *Self) !void {
 
         std.debug.print("RECV({}): {s}\n", .{ remote_addr, msg });
 
-        try self.handleCommand(msg);
+        try self.handleCommand(remote_addr, msg);
     }
 }

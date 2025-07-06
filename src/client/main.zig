@@ -10,5 +10,5 @@ pub fn main() !void {
         std.Thread.sleep(1.0 * std.time.ns_per_s);
     }
 
-    client.leave();
+    try client.leave();
 }
