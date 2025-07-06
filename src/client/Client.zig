@@ -53,8 +53,28 @@ pub fn join() !Self {
 }
 
 fn handleCommand(self: *Self, msg: []const u8) !void {
-    _ = self;
-    _ = msg;
+    var parts = std.mem.splitAny(u8, msg, " ");
+    const cmd = parts.first();
+
+    if (std.mem.eql(u8, cmd, "NEW")) {
+        const client_id = parts.next().?;
+        const ip = parts.next().?;
+        const port = try std.fmt.parseInt(u16, parts.next().?, 10);
+        self.mu.lock();
+
+        const peer_addr = try net.Address.resolveIp(ip, port);
+
+        try self.clients.put(client_id, Client{
+            .addr = peer_addr,
+            .id = client_id,
+            .last_seen_secs = 0,
+        });
+
+        self.mu.unlock();
+
+        _ = try self.peer.sendToFmt(peer_addr, "PUNCH", .{});
+        std.debug.print("NEW CLIENT(HIDDEN_IP): {s}\n", .{client_id});
+    }
 }
 
 fn serverReaderReturnsError(self: *Self) !void {
@@ -63,8 +83,6 @@ fn serverReaderReturnsError(self: *Self) !void {
     while (true) {
         const n = try self.server.recv(&buffer);
         const msg = std.mem.trim(u8, buffer[0..n], " ");
-
-        std.debug.print("RECV(SERVER): {s}\n", .{msg});
 
         try self.handleCommand(msg);
     }

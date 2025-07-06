@@ -54,7 +54,7 @@ fn parseStunResponse(resp: []const u8, txID: []const u8) !net.Address {
 
     var magic_valid = true;
     for (0.., magic) |i, m| {
-        magic_valid &= m == STUN_MAGIC[i];
+        magic_valid = magic_valid and m == STUN_MAGIC[i];
     }
 
     if (!magic_valid) return error.InvalidStunMagic;
