@@ -5,7 +5,7 @@ const posix = std.posix;
 
 const Self = @This();
 
-address: std.net.Address,
+address: net.Address,
 socket: posix.socket_t,
 
 const RecvFromReturn = struct {
@@ -19,6 +19,15 @@ pub fn init(address: []const u8, port: u16) !Self {
 
     return Self{
         .address = parsed_address,
+        .socket = sock,
+    };
+}
+
+pub fn initNet(address: net.Address) !Self {
+    const sock = try posix.socket(address.any.family, posix.SOCK.DGRAM, posix.IPPROTO.UDP);
+
+    return Self{
+        .address = address,
         .socket = sock,
     };
 }
@@ -47,8 +56,26 @@ pub fn recvFrom(self: Self, buffer: []u8) !RecvFromReturn {
     };
 }
 
+pub fn writeToAddress(address: net.Address, data: []u8) !usize {
+    var sock = try Self.initNet(address);
+    try sock.connect();
+    const n = try sock.send(data);
+    sock.close();
+    return n;
+}
+
+pub fn writeFmtToAddress(address: net.Address, comptime fmt: []const u8, args: anytype) !usize {
+    const str = try std.fmt.allocPrint(std.heap.page_allocator, fmt, args);
+    return try writeToAddress(address, str);
+}
+
 pub fn send(self: Self, data: []u8) !usize {
     return try posix.send(self.socket, data[0..], 0);
+}
+
+pub fn sendFmt(self: Self, comptime fmt: []const u8, args: anytype) !usize {
+    const str = try std.fmt.allocPrint(std.heap.page_allocator, fmt, args);
+    return try self.send(str);
 }
 
 pub fn close(self: Self) void {

@@ -1,13 +1,14 @@
 const std = @import("std");
 
-const Socket = @import("nekomi").Socket;
-const stun = @import("nekomi").stun;
+const Client = @import("Client.zig");
 
 pub fn main() !void {
-    const address = try stun.bindAndGetAddr();
+    var client = try Client.join();
+    try client.startServerReader();
 
-    std.debug.print("NAT Mapped Address: {}\n", .{address});
+    while (client.running) {
+        std.Thread.sleep(1.0 * std.time.ns_per_s);
+    }
 
-    const server_socket = try Socket.init("127.0.0.1", 8899);
-    try server_socket.connect();
+    client.leave();
 }
